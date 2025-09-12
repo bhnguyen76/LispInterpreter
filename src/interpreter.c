@@ -2,22 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-
-typedef enum { TYPE_NIL, TYPE_INT, TYPE_DOUBLE, TYPE_SYMBOL, TYPE_STRING, TYPE_CONS } sType;
-typedef struct sExp {
-    sType type;
-    union 
-    {
-        long intVal;
-        double doubleVal;
-        char *strVal;
-        struct 
-        {
-            struct sExp *car;
-            struct sExp *cdr;
-        } cons;
-    };
-} sExp;
+#include "interpreter.h"
 
 sExp *NIL;   
 sExp *TRUE; 
