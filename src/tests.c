@@ -206,6 +206,32 @@ void test_bool() {
     printf("\n");
 }
 
+void test_car_cdr() {
+    sExp *one = make_int(1);
+    sExp *two = make_int(2);
+    sExp *pair = cons(one, two);
+
+    assert_int(1, car(pair), "car of (1 . 2) = 1");
+    assert_int(2, cdr(pair), "cdr of (1 . 2) = 2");
+
+    sExp *list = cons(make_int(1), cons(make_int(2), cons(make_int(3), NIL)));
+
+    assert_int(1, car(list), "car of (1 2 3) = 1");
+
+    sExp *rest = cdr(list);
+    sExp *expected = cons(make_int(2), cons(make_int(3), NIL));
+    assert_list(expected, rest, "cdr of (1 2 3) = (2 3)");
+
+    assert_nil(car(NIL), "car of NIL = NIL");
+    assert_nil(cdr(NIL), "cdr of NIL = NIL");
+
+    assert_nil(car(one), "car of int = NIL");
+    assert_nil(cdr(one), "cdr of int = NIL");
+
+    printf("\n");
+}
+
+
 void test_arithmetic() {
     sExp *a = make_int(5);
     sExp *b = make_int(3);
@@ -288,7 +314,8 @@ int main() {
     printf("=== Sprint 2: Predicates ===\n");
     test_predicates();
     test_bool();
-    
+     test_car_cdr();
+     
     printf("=== Sprint 3: Arithmetic ===\n");
     test_arithmetic();
     test_relations();
