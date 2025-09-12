@@ -25,6 +25,7 @@ sExp *TRUE;
 sExp *read_sexp(FILE *in);
 void print_sexp(sExp *exp);
 
+// -- Core Read and Write Functions
 int peek(FILE *input) {
     int character = fgetc(input);
     if (character != EOF) ungetc(character, input);
@@ -92,23 +93,6 @@ sExp *car(sExp *exp) {
 sExp *cdr(sExp *exp) {
     return (exp->type == TYPE_CONS) ? exp->cons.cdr : NIL;
 }
-
-// --- Predicates ---
-int is_nil(sExp *exp)    { return exp->type == TYPE_NIL; }
-
-int is_symbol(sExp *exp) { return exp->type == TYPE_SYMBOL; }
-
-int is_number(sExp *exp) { return exp->type == TYPE_INT || exp->type == TYPE_DOUBLE; }
-
-int is_string(sExp *exp) { return exp->type == TYPE_STRING; }
-
-int is_list(sExp *exp) {
-    if (exp->type == TYPE_NIL) return 1;
-    if (exp->type == TYPE_CONS) return 1;
-    return 0;
-}
-
-int sexp_to_bool(sExp *exp) { return exp != NIL; }
 
 sExp *read_atom(FILE *input) {
     char buffer[256];
@@ -215,36 +199,115 @@ void  print_sexp(sExp *exp) {
     }
 }
 
-int main(int argc, char *argv[]) {
-    FILE *input = NULL;
+// --- Predicates ---
+int is_nil(sExp *exp)    { return exp->type == TYPE_NIL; }
 
-    NIL = malloc(sizeof(sExp));
-    NIL->type = TYPE_NIL;
+int is_symbol(sExp *exp) { return exp->type == TYPE_SYMBOL; }
 
-    TRUE = malloc(sizeof(sExp));
-    TRUE->type = TYPE_SYMBOL;
-    TRUE->strVal = strdup("t");
+int is_number(sExp *exp) { return exp->type == TYPE_INT || exp->type == TYPE_DOUBLE; }
 
-    if (argc == 1) {
-        printf("Reading from stdin. Enter a S-Expression:\n");
-        printf("> ");
-        input = stdin;
-    } 
-    else if (argc == 2) {
-        input = fopen(argv[1], "r");
-        if (!input) {
-            printf("Bad File: %s\n", argv[1]);
-            return 1;
-        }
-    }
+int is_string(sExp *exp) { return exp->type == TYPE_STRING; }
 
-    sExp *exp;
-    while ((exp = read_sexp(input)) != NULL) {
-        // printf(": ");
-        print_sexp(exp);
-        printf("\n> ");
-    }
-
-    if (input != stdin) fclose(input);
+int is_list(sExp *exp) {
+    if (exp->type == TYPE_NIL) return 1;
+    if (exp->type == TYPE_CONS) return 1;
     return 0;
+}
+
+int sexp_to_bool(sExp *exp) { return exp != NIL; }
+
+// -- Arithmetic --
+sExp *add(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+
+    if (a->type == TYPE_DOUBLE || b->type == TYPE_DOUBLE) {
+        double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+        double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+        return make_double(x + y);
+    }
+
+    return make_int(a->intVal + b->intVal);
+}
+
+sExp *sub(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+
+    if (a->type == TYPE_DOUBLE || b->type == TYPE_DOUBLE) {
+        double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+        double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+        return make_double(x - y);
+    }
+
+    return make_int(a->intVal - b->intVal);
+}
+
+sExp *mul(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+
+    if (a->type == TYPE_DOUBLE || b->type == TYPE_DOUBLE) {
+        double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+        double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+        return make_double(x * y);
+    }
+
+    return make_int(a->intVal * b->intVal);
+}
+
+sExp *divide(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+    double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+    if (y == 0) return make_symbol("DivisionByZero");
+
+    double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+    return make_double(x / y);
+}
+
+sExp *mod(sExp *a, sExp *b) {
+    if (a->type != TYPE_INT || b->type != TYPE_INT) return make_symbol("NotAnInteger");
+    if (b->intVal == 0) return make_symbol("DivisionByZero");
+    return make_int(a->intVal % b->intVal);
+}
+
+sExp *lt(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+    double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+    double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+    return (x < y) ? TRUE : NIL;
+}
+
+sExp *gt(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+    double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+    double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+    return (x > y) ? TRUE : NIL;
+}
+
+sExp *lte(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+    double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+    double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+    return (x <= y) ? TRUE : NIL;
+}
+
+sExp *gte(sExp *a, sExp *b) {
+    if (!is_number(a) || !is_number(b)) return make_symbol("NotANumber");
+    double x = (a->type == TYPE_DOUBLE ? a->doubleVal : a->intVal);
+    double y = (b->type == TYPE_DOUBLE ? b->doubleVal : b->intVal);
+    return (x >= y) ? TRUE : NIL;
+}
+
+sExp *eq(sExp *a, sExp *b) {
+    if (a->type != b->type) return NIL;
+    switch (a->type) {
+        case TYPE_INT:    return (a->intVal == b->intVal) ? TRUE : NIL;
+        case TYPE_DOUBLE: return (a->doubleVal == b->doubleVal) ? TRUE : NIL;
+        case TYPE_STRING:
+        case TYPE_SYMBOL: return (strcmp(a->strVal, b->strVal) == 0) ? TRUE : NIL;
+        case TYPE_NIL:    return TRUE;
+        default:          return NIL;
+    }
+}
+
+sExp *logical_not(sExp *a) {
+    return (a == NIL) ? TRUE : NIL;
 }
