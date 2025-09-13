@@ -13,7 +13,7 @@ run: lisp
 
 test: src/tests.c $(source) $(header)
 	$(CC) -o test src/tests.c $(source)
-	./test 
+	./test | tee test_results.txt
 
 clean:
 	rm -f run test *.o
