@@ -7,52 +7,85 @@
 int tests_passed = 0;
 int tests_failed = 0;
 
-void assert_int(long expected, sExp *result, const char *msg) {
-    if (result->type == TYPE_INT && result->intVal == expected) {
-        printf("[PASS] %s\n", msg);
-        tests_passed++;
+void assert_int(long expected, sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: %ld\n", expected);
+
+    if (result->type == TYPE_INT) {
+        printf("Result: %ld\n", result->intVal);
+        if (result->intVal == expected) {
+            printf("[PASS]\n\n");
+            tests_passed++;
+            return;
+        }
     } else {
-        printf("[FAIL] %s (expected %ld, got ", msg, expected);
+        printf("Result: ");
         print_sexp(result);
-        printf(")\n");
-        tests_failed++;
+        printf("\n");
     }
+
+    printf("[FAIL]\n\n");
+    tests_failed++;
 }
 
-void assert_double(double expected, sExp *result, const char *msg) {
-    if (result->type == TYPE_DOUBLE && fabs(result->doubleVal - expected) < 1e-6) {
-        printf("[PASS] %s\n", msg);
-        tests_passed++;
+void assert_double(double expected, sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: %f\n", expected);
+
+    if (result->type == TYPE_DOUBLE) {
+        printf("Result: %f\n", result->doubleVal);
+        if (fabs(result->doubleVal - expected) < 1e-6) {
+            printf("[PASS]\n\n");
+            tests_passed++;
+            return;
+        }
     } else {
-        printf("[FAIL] %s (expected %f, got ", msg, expected);
+        printf("Result: ");
         print_sexp(result);
-        printf(")\n");
-        tests_failed++;
+        printf("\n");
     }
+
+    printf("[FAIL]\n\n");
+    tests_failed++;
 }
 
-void assert_symbol(const char *expected, sExp *result, const char *msg) {
-    if (result->type == TYPE_SYMBOL && strcmp(result->strVal, expected) == 0) {
-        printf("[PASS] %s\n", msg);
-        tests_passed++;
+void assert_symbol(const char *expected, sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: symbol \"%s\"\n", expected);
+
+    if (result->type == TYPE_SYMBOL) {
+        printf("Result: symbol \"%s\"\n", result->strVal);
+        if (strcmp(result->strVal, expected) == 0) {
+            printf("[PASS]\n\n");
+            tests_passed++;
+            return;
+        }
     } else {
-        printf("[FAIL] %s (expected symbol \"%s\", got ", msg, expected);
+        printf("Result: ");
         print_sexp(result);
-        printf(")\n");
-        tests_failed++;
+        printf("\n");
     }
+    printf("[FAIL]\n\n");
+    tests_failed++;
 }
 
-void assert_string(const char *expected, sExp *result, const char *msg) {
-    if (result->type == TYPE_STRING && strcmp(result->strVal, expected) == 0) {
-        printf("[PASS] %s\n", msg);
-        tests_passed++;
+void assert_string(const char *expected, sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: string \"%s\"\n", expected);
+    if (result->type == TYPE_STRING) {
+        printf("Result: string \"%s\"\n", result->strVal);
+        if (strcmp(result->strVal, expected) == 0) {
+            printf("[PASS]\n\n");
+            tests_passed++;
+            return;
+        }
     } else {
-        printf("[FAIL] %s (expected string \"%s\", got ", msg, expected);
+        printf("Result: ");
         print_sexp(result);
-        printf(")\n");
-        tests_failed++;
+        printf("\n");
     }
+    printf("[FAIL]\n\n");
+    tests_failed++;
 }
 
 int sexp_equal(sExp *a, sExp *b) {
@@ -75,59 +108,66 @@ int sexp_equal(sExp *a, sExp *b) {
     return 0; 
 }
 
-void assert_list(sExp *expected, sExp *result, const char *msg) {
+
+void assert_list(sExp *expected, sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: ");
+    print_sexp(expected);
+    printf("\nResult: ");
+    print_sexp(result);
+    printf("\n");
     if (sexp_equal(expected, result)) {
-        printf("[PASS] %s\n", msg);
+        printf("[PASS]\n\n");
         tests_passed++;
     } else {
-        printf("[FAIL] %s (expected ", msg);
-        print_sexp(expected);
-        printf(", got ");
-        print_sexp(result);
-        printf(")\n");
+        printf("[FAIL]\n\n");
         tests_failed++;
     }
 }
 
-void assert_true(sExp *result, const char *msg) {
+void assert_true(sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: TRUE\nResult: ");
+    print_sexp(result);
+    printf("\n");
     if (result == TRUE) {
-        printf("[PASS] %s\n", msg);
+        printf("[PASS]\n\n");
         tests_passed++;
     } else {
-        printf("[FAIL] %s (expected TRUE, got ", msg);
-        print_sexp(result);
-        printf(")\n");
+        printf("[FAIL]\n\n");
         tests_failed++;
     }
 }
 
-void assert_nil(sExp *result, const char *msg) {
+void assert_nil(sExp *result, const char *description, const char *input) {
+    printf("Input: %s\n", input);
+    printf("Expected: NIL\nResult: ");
+    print_sexp(result);
+    printf("\n");
     if (result == NIL) {
-        printf("[PASS] %s\n", msg);
+        printf("[PASS]\n\n");
         tests_passed++;
     } else {
-        printf("[FAIL] %s (expected NIL, got ", msg);
-        print_sexp(result);
-        printf(")\n");
+        printf("[FAIL]\n\n");
         tests_failed++;
     }
 }
 
 void test_constructors() {
-    assert_int(42, make_int(42), "make_int works");
-    assert_double(3.14, make_double(3.14), "make_double works");
-    assert_symbol("foo", make_symbol("foo"), "make_symbol works");
-    assert_string("bar", make_string("bar"), "make_string works");
+    assert_int(42, make_int(42), "int constructor", "make_int(42)");
+    assert_double(3.14, make_double(3.14), "double constructor", "make_double(3.14)");
+    assert_symbol("foo", make_symbol("foo"), "symbol constructor", "make_symbol(\"foo\")");
+    assert_string("bar", make_string("bar"), "string constructor", "make_string(\"bar\")");
 
     sExp *list = cons(make_int(1), cons(make_int(2), NIL));
     sExp *expected = cons(make_int(1), cons(make_int(2), NIL));
-    assert_list(expected, list, "cons works");
+    assert_list(expected, list, "cons constructor", "cons(make_int(1), cons(make_int(2), NIL))");
 
     printf("\n");
 
-    assert_nil(NIL, "NIL singleton");
+    assert_nil(NIL, "NIL singleton", "NIL");
 
-    assert_true(TRUE, "TRUE singleton");
+    assert_true(TRUE, "TRUE singleton", "TRUE");
     printf("\n");
 }
 
@@ -136,7 +176,7 @@ void test_parser() {
         const char *src = "123";
         FILE *f = fmemopen((void*)src, strlen(src), "r");
         sExp *result = read_sexp(f);
-        assert_int(123, result, "parse int 123");
+        assert_int(123, result, "parse int 123", "123");
         fclose(f);
     }
 
@@ -144,7 +184,7 @@ void test_parser() {
         const char *src = "hello";
         FILE *f = fmemopen((void*)src, strlen(src), "r");
         sExp *result = read_sexp(f);
-        assert_symbol("hello", result, "parse symbol hello");
+        assert_symbol("hello", result, "parse symbol hello", "hello");
         fclose(f);
     }
 
@@ -152,7 +192,7 @@ void test_parser() {
         const char *src = "\"world\"";
         FILE *f = fmemopen((void*)src, strlen(src), "r");
         sExp *result = read_sexp(f);
-        assert_string("world", result, "parse string \"world\"");
+        assert_string("world", result, "parse string \"world\"", "\"world\"");
         fclose(f);
     }
 
@@ -161,7 +201,7 @@ void test_parser() {
         FILE *f = fmemopen((void*)src, strlen(src), "r");
         sExp *result = read_sexp(f);
         sExp *expected = cons(make_int(1), cons(make_int(2), cons(make_int(3), NIL)));
-        assert_list(expected, result, "parse list (1 2 3)");
+        assert_list(expected, result, "parse list (1 2 3)", "(1 2 3)");
         fclose(f);
     }
 
@@ -170,7 +210,7 @@ void test_parser() {
         FILE *f = fmemopen((void*)src, strlen(src), "r");
         sExp *result = read_sexp(f);
         sExp *expected = cons(make_symbol("a"), cons(cons(make_symbol("b"), cons(make_symbol("c"), NIL)), cons(make_symbol("d"), NIL)));
-        assert_list(expected, result, "parse nested list (a (b c) d)");
+        assert_list(expected, result, "parse nested list (a (b c) d)", "(a (b c) d)");
         fclose(f);
     }
 
@@ -185,24 +225,24 @@ void test_predicates() {
     sExp *str = make_string("xyz");
     sExp *list = cons(i, cons(d, NIL));
 
-    assert_true(is_number(i) ? TRUE : NIL, "is_number detects int");
-    assert_true(is_number(d) ? TRUE : NIL, "is_number detects double");
-    assert_nil(is_number(str) ? TRUE : NIL, "is_number rejects string");
+    assert_true(is_number(i) ? TRUE : NIL, "is_number detects int", "is_number(10)");
+    assert_true(is_number(d) ? TRUE : NIL, "is_number detects double", "is_number(2.5)");
+    assert_nil(is_number(str) ? TRUE : NIL, "is_number rejects string", "is_number(\"xyz\")");
 
-    assert_true(is_symbol(sym) ? TRUE : NIL, "is_symbol detects symbol");
-    assert_nil(is_symbol(i) ? TRUE : NIL, "is_symbol rejects int");
+    assert_true(is_symbol(sym) ? TRUE : NIL, "is_symbol detects symbol", "is_symbol(abc)");
+    assert_nil(is_symbol(i) ? TRUE : NIL, "is_symbol rejects int", "is_symbol(10)");
 
-    assert_true(is_string(str) ? TRUE : NIL, "is_string detects string");
-    assert_nil(is_string(d) ? TRUE : NIL, "is_string rejects double");
+    assert_true(is_string(str) ? TRUE : NIL, "is_string detects string", "is_string(\"xyz\")");
+    assert_nil(is_string(d) ? TRUE : NIL, "is_string rejects double", "is_string(2.5)");
 
-    assert_true(is_list(list) ? TRUE : NIL, "is_list detects cons");
-    assert_true(is_list(NIL) ? TRUE : NIL, "is_list detects NIL as list");
-    assert_nil(is_list(i) ? TRUE : NIL, "is_list rejects int");
+    assert_true(is_list(list) ? TRUE : NIL, "is_list detects cons", "is_list(10 2.5)");
+    assert_true(is_list(NIL) ? TRUE : NIL, "is_list detects NIL as list", "is_list(NIL)");
+    assert_nil(is_list(i) ? TRUE : NIL, "is_list rejects int", "is_list(10)");
 }
 
 void test_bool() {
-    assert_true(sexp_to_bool(TRUE) ? TRUE : NIL, "sexp_to_bool(TRUE) is true");
-    assert_nil(sexp_to_bool(NIL) ? TRUE : NIL, "sexp_to_bool(NIL) is false");
+    assert_true(sexp_to_bool(TRUE) ? TRUE : NIL, "sexp_to_bool(TRUE) is true", "sexp_to_bool(TRUE)");
+    assert_nil(sexp_to_bool(NIL) ? TRUE : NIL, "sexp_to_bool(NIL) is false", "sexp_to_bool(NIL)");
     printf("\n");
 }
 
@@ -211,22 +251,22 @@ void test_car_cdr() {
     sExp *two = make_int(2);
     sExp *pair = cons(one, two);
 
-    assert_int(1, car(pair), "car of (1 . 2) = 1");
-    assert_int(2, cdr(pair), "cdr of (1 . 2) = 2");
+    assert_int(1, car(pair), "car of (1 . 2) = 1", "car((1 2))");
+    assert_int(2, cdr(pair), "cdr of (1 . 2) = 2", "cdr((1 2))");
 
     sExp *list = cons(make_int(1), cons(make_int(2), cons(make_int(3), NIL)));
 
-    assert_int(1, car(list), "car of (1 2 3) = 1");
+    assert_int(1, car(list), "car of (1 2 3) = 1", "car((1 2 3))");
 
     sExp *rest = cdr(list);
     sExp *expected = cons(make_int(2), cons(make_int(3), NIL));
-    assert_list(expected, rest, "cdr of (1 2 3) = (2 3)");
+    assert_list(expected, rest, "cdr of (1 2 3) = (2 3)", "cdr((1 2 3))");
 
-    assert_nil(car(NIL), "car of NIL = NIL");
-    assert_nil(cdr(NIL), "cdr of NIL = NIL");
+    assert_nil(car(NIL), "car of NIL = NIL", "car(NIL)");
+    assert_nil(cdr(NIL), "cdr of NIL = NIL", "cdr((NIL))");
 
-    assert_nil(car(one), "car of int = NIL");
-    assert_nil(cdr(one), "cdr of int = NIL");
+    assert_nil(car(one), "car of int = NIL", "car(1)");
+    assert_nil(cdr(one), "cdr of int = NIL", "cdr(1)");
 
     printf("\n");
 }
@@ -236,11 +276,11 @@ void test_arithmetic() {
     sExp *a = make_int(5);
     sExp *b = make_int(3);
 
-    assert_int(8, add(a,b), "5 + 3 = 8");
-    assert_int(2, sub(a,b), "5 - 3 = 2");
-    assert_int(15, mul(a,b), "5 * 3 = 15");
-    assert_double(1.666667, divide(a,b), "5 / 3 ≈ 1.666667");
-    assert_int(2, mod(a,b), "5 % 3 = 2");
+    assert_int(8, add(a,b), "5 + 3 = 8", "add(5,3)");
+    assert_int(2, sub(a,b), "5 - 3 = 2", "sub(5,3)");
+    assert_int(15, mul(a,b), "5 * 3 = 15", "mul(5,3)");
+    assert_double(1.666667, divide(a,b), "5 / 3 ≈ 1.666667", "divide(5,3)");
+    assert_int(2, mod(a,b), "5 % 3 = 2", "mod(5,3)");
 }
 
 void test_relations() {
@@ -248,10 +288,10 @@ void test_relations() {
     sExp *b = make_int(3);
     sExp *c = make_int(5);
 
-    assert_true(gt(a,b), "5 > 3");
-    assert_true(lt(b,a), "3 < 5");
-    assert_true(gte(a,c), "5 >= 5");
-    assert_true(lte(b,a), "3 <= 5");
+    assert_true(gt(a,b), "5 > 3", "gt(5,3)");
+    assert_true(lt(b,a), "3 < 5", "lt(3,5)");
+    assert_true(gte(a,c), "5 >= 5", "gte(5,5)");
+    assert_true(lte(b,a), "3 <= 5", "lte(3,5)");
 }
 
 void test_equality() {
@@ -259,14 +299,14 @@ void test_equality() {
     sExp *b = make_int(5);
     sExp *c = make_int(7);
 
-    assert_true(eq(a,b), "5 == 5");
-    assert_nil(eq(a,c), "5 != 7");
-    assert_true(eq(make_symbol("x"), make_symbol("x")), "symbols equal");
+    assert_true(eq(a,b), "5 == 5", "eq(5,5)");
+    assert_nil(eq(a,c), "5 != 7", "eq(5, 7)");
+    assert_true(eq(make_symbol("x"), make_symbol("x")), "symbols equal", "eq(x,x)");
 }
 
 void test_logical() {
-    assert_true(logical_not(NIL), "not NIL = TRUE");
-    assert_nil(logical_not(TRUE), "not TRUE = NIL");
+    assert_true(logical_not(NIL), "not NIL = TRUE", "not(NIL)");
+    assert_nil(logical_not(TRUE), "not TRUE = NIL", "not(TRUE)");
 }
 
 void test_arithmetic_errors() {
@@ -274,26 +314,13 @@ void test_arithmetic_errors() {
     sExp *zero = make_int(0);
     sExp *str = make_string("oops");
 
-    // Division by zero
-    assert_symbol("DivisionByZero", divide(a, zero), "divide by zero error");
-
-    // Mod by zero
-    assert_symbol("DivisionByZero", mod(a, zero), "mod by zero error");
-
-    // Mod with non-int
-    assert_symbol("NotAnInteger", mod(a, make_double(3.14)), "mod with double should fail");
-
-    // Add with non-number
-    assert_symbol("NotANumber", add(a, str), "add with string should fail");
-
-    // Sub with non-number
-    assert_symbol("NotANumber", sub(str, a), "sub with string should fail");
-
-    // Mul with non-number
-    assert_symbol("NotANumber", mul(a, str), "mul with string should fail");
-
-    // Divide with non-number
-    assert_symbol("NotANumber", divide(a, str), "divide with string should fail");
+    assert_symbol("DivisionByZero", divide(a, zero), "divide by zero error", "divide(5,0)");
+    assert_symbol("DivisionByZero", mod(a, zero), "mod by zero error", "mod(5,0)");
+    assert_symbol("NotAnInteger", mod(a, make_double(3.14)), "mod with double should fail", "mod(5,3.14)");
+    assert_symbol("NotANumber", add(a, str), "add with string should fail", "add(5,oops)");
+    assert_symbol("NotANumber", sub(str, a), "sub with string should fail", "sub(5,oops)");
+    assert_symbol("NotANumber", mul(a, str), "mul with string should fail", "mul(5,oops)");
+    assert_symbol("NotANumber", divide(a, str), "divide with string should fail", "divide(5,oops)");
 }
 
 
