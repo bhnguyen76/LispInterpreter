@@ -6,12 +6,13 @@
 int main(int argc, char *argv[]) {
     FILE *input = NULL;
 
-    NIL = malloc(sizeof(sExp));
-    NIL->type = TYPE_NIL;
+    init_runtime();
+    // NIL = malloc(sizeof(sExp));
+    // NIL->type = TYPE_NIL;
 
-    TRUE = malloc(sizeof(sExp));
-    TRUE->type = TYPE_SYMBOL;
-    TRUE->strVal = strdup("t");
+    // TRUE = malloc(sizeof(sExp));
+    // TRUE->type = TYPE_SYMBOL;
+    // TRUE->strVal = strdup("t");
 
     if (argc == 1) {
         printf("Reading from stdin. Enter a S-Expression:\n");

@@ -20,6 +20,16 @@ typedef struct sExp {
 
 extern sExp *NIL;
 extern sExp *TRUE;
+extern sExp *global_env;
+
+void init_runtime();
+
+// -- Environment --
+sExp *make_env();
+sExp *lookup(sExp *symbol);
+sExp *set_symbol(sExp *symbol, sExp *value);
+// sExp* lookup(sExp* sym, sExp* env);
+// void  env_set(sExp* sym, sExp* val, sExp** env);
 
 // -- Constructors --
 sExp *make_int(long val);
@@ -59,4 +69,6 @@ sExp *gte(sExp *a, sExp *b);
 sExp *eq(sExp *a, sExp *b);
 sExp *logical_not(sExp *a);
 
+// -- evalutaion --
+sExp *eval(sExp *sexp);
 #endif

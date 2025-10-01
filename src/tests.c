@@ -51,10 +51,10 @@ void assert_double(double expected, sExp *result, const char *description, const
 
 void assert_symbol(const char *expected, sExp *result, const char *description, const char *input) {
     printf("Input: %s\n", input);
-    printf("Expected: symbol \"%s\"\n", expected);
+    printf("Expected: %s\n", expected);
 
     if (result->type == TYPE_SYMBOL) {
-        printf("Result: symbol \"%s\"\n", result->strVal);
+        printf("Result: %s\n", result->strVal);
         if (strcmp(result->strVal, expected) == 0) {
             printf("[PASS]\n\n");
             tests_passed++;
@@ -71,9 +71,9 @@ void assert_symbol(const char *expected, sExp *result, const char *description, 
 
 void assert_string(const char *expected, sExp *result, const char *description, const char *input) {
     printf("Input: %s\n", input);
-    printf("Expected: string \"%s\"\n", expected);
+    printf("Expected: \"%s\"\n", expected);
     if (result->type == TYPE_STRING) {
-        printf("Result: string \"%s\"\n", result->strVal);
+        printf("Result: \"%s\"\n", result->strVal);
         if (strcmp(result->strVal, expected) == 0) {
             printf("[PASS]\n\n");
             tests_passed++;
@@ -323,14 +323,89 @@ void test_arithmetic_errors() {
     assert_symbol("NotANumber", divide(a, str), "divide with string should fail", "divide(5,oops)");
 }
 
+void test_eval() {
+    // --- Atoms ---
+    assert_int(42, eval(make_int(42)), "eval int", "eval 42");
+    assert_double(3.14, eval(make_double(3.14)), "eval double", "eval 3.14");
+    assert_symbol("x", eval(make_symbol("x")), "eval unbound symbol", "eval x");
+    assert_string("hello", eval(make_string("hello")), "eval string", "eval \"hello\"");
+
+    // --- Quote ---
+    sExp *quotedInt = cons(make_symbol("quote"), cons(make_int(42), NIL));
+    assert_int(42, eval(quotedInt), "quote int", "(quote 42)");
+
+    sExp *quotedList = cons(make_symbol("quote"),
+        cons(cons(make_int(1),
+            cons(make_int(2),
+                cons(make_int(3), NIL))),
+        NIL));
+    sExp *expectedList = cons(make_int(1), cons(make_int(2), cons(make_int(3), NIL)));
+    assert_list(expectedList, eval(quotedList), "quote list", "(quote (1 2 3))");
+
+    // --- Set & Symbol Lookup ---
+    sExp *setExpr = cons(make_symbol("set"), cons(make_symbol("x"), cons(make_int(10), NIL)));
+    assert_int(10, eval(setExpr), "set variable x", "(set x 10)");
+    assert_int(10, eval(make_symbol("x")), "eval bound symbol x", "eval x");
+
+    sExp *setExpr2 = cons(make_symbol("set"), cons(make_symbol("x"), cons(make_int(99), NIL)));
+    assert_int(99, eval(setExpr2), "update variable x", "(set x 99)");
+    assert_int(99, eval(make_symbol("x")), "eval updated symbol x", "eval x");
+
+    // --- Builtins ---
+    sExp *addExpr = cons(make_symbol("add"), cons(make_int(1), cons(make_int(2), NIL)));
+    assert_int(3, eval(addExpr), "eval add", "(add 1 2)");
+
+    sExp *subExpr = cons(make_symbol("sub"), cons(make_int(10), cons(make_int(7), NIL)));
+    assert_int(3, eval(subExpr), "eval sub", "(sub 10 7)");
+
+    sExp *mulExpr = cons(make_symbol("mul"), cons(make_int(4), cons(make_int(5), NIL)));
+    assert_int(20, eval(mulExpr), "eval mul", "(mul 4 5)");
+
+    sExp *divExpr = cons(make_symbol("div"), cons(make_int(11), cons(make_int(2), NIL)));
+    assert_double(5.5, eval(divExpr), "eval div", "(div 11 2)");
+
+    sExp *eqExpr = cons(make_symbol("eq"),
+        cons(make_int(3),
+            cons(cons(make_symbol("add"),
+                cons(make_int(1), cons(make_int(2), NIL))), NIL)));
+    assert_true(eval(eqExpr), "eval eq with nested add", "(eq 3 (add 1 2))");
+
+    // --- Parsed expressions ---
+    {
+        const char *src = "(eq 3 (add 1 2))";
+        FILE *f = fmemopen((void*)src, strlen(src), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+        assert_true(result, "parse+eval eq", "(eq 3 (add 1 2))");
+        fclose(f);
+    }
+
+    {
+        const char *src = "(div 11 2)";
+        FILE *f = fmemopen((void*)src, strlen(src), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+        assert_double(5.5, result, "parse+eval div", "(div 11 2)");
+        fclose(f);
+    }
+
+    {
+        const char *src = "(set y 123)";
+        FILE *f = fmemopen((void*)src, strlen(src), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+        assert_int(123, result, "parse+eval set", "(set y 123)");
+        fclose(f);
+
+        assert_int(123, eval(make_symbol("y")), "eval bound symbol y", "y");
+    }
+
+    printf("\n");
+}
+
 
 int main() {
-    NIL = malloc(sizeof(sExp));
-    NIL->type = TYPE_NIL;
-
-    TRUE = malloc(sizeof(sExp));
-    TRUE->type = TYPE_SYMBOL;
-    TRUE->strVal = strdup("t");
+    init_runtime();
 
     printf("Running Tests...\n\n");
 
@@ -341,7 +416,7 @@ int main() {
     printf("=== Sprint 2: Predicates ===\n");
     test_predicates();
     test_bool();
-     test_car_cdr();
+    test_car_cdr();
      
     printf("=== Sprint 3: Arithmetic ===\n");
     test_arithmetic();
@@ -350,6 +425,9 @@ int main() {
     test_logical();
     test_arithmetic_errors();
     
+    printf("=== Sprint 4: Eval ===\n");
+    test_eval();
+
     printf("\nTests Passed: %d\n", tests_passed);
     printf("Tests Failed: %d\n", tests_failed);
 
