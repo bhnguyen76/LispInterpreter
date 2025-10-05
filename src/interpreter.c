@@ -39,6 +39,11 @@ sExp *find_symbol(sExp *target, sExp *symbols, sExp *values) {
 }
 
 sExp *lookup(sExp *target) {
+    if (target->type == TYPE_SYMBOL) {
+        if (strcmp(target->strVal, "t") == 0) return TRUE;
+        if (strcmp(target->strVal, "nil") == 0) return NIL;
+    }
+
     sExp *symbols = car(global_env);
     sExp *values = car(cdr(global_env));
 
@@ -432,7 +437,56 @@ sExp *eval(sExp *sexp) {
         if (strcmp(fn->strVal, "gte") == 0) {
             return gte(eval(car(args)), eval(car(cdr(args))));
         }
+        if (strcmp(fn->strVal, "and") == 0) {
+            sExp *first = eval(car(args));
+            if (is_nil(first)) return NIL;  
+            return eval(car(cdr(args)));
+        }
+        if (strcmp(fn->strVal, "or") == 0) {
+            sExp *first = eval(car(args));
+            if (!is_nil(first)) return TRUE;  
+            return eval(car(cdr(args)));
+        }
+        if (strcmp(fn->strVal, "if") == 0) {
+            sExp *test = eval(car(args));
+            if (!is_nil(test)) {
+                return eval(car(cdr(args)));  
+            } else {
+                return eval(car(cdr(cdr(args)))); 
+            }
+        }
+        if (strcmp(fn->strVal, "cond") == 0) {
+            return eval_cond(args);
+        }
     }
 
     return make_symbol("UnknownFunction");
+}
+
+sExp *eval_cond (sExp *clauses) {
+    if (is_nil(clauses)) {
+        return NIL;
+    } 
+
+    sExp *clause = car(clauses);   
+
+    if (is_nil(clause)) return eval_cond(cdr(clauses));
+
+    sExp *test   = car(clause);
+    sExp *result = car(cdr(clause));
+
+    // Evaluate test
+    sExp *test_eval;
+    if (test->type == TYPE_SYMBOL && strcmp(test->strVal, "t") == 0)
+        test_eval = TRUE;
+    else
+        test_eval = eval(test);
+
+    // If test is true → evaluate and return result
+    if (!is_nil(test_eval)) {
+        if (is_nil(result)) return TRUE;   // handle case like (cond ((t)))
+        return eval(result);
+    }
+
+    return eval_cond(cdr(clauses));
 }

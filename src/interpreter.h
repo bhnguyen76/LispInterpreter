@@ -71,4 +71,6 @@ sExp *logical_not(sExp *a);
 
 // -- evalutaion --
 sExp *eval(sExp *sexp);
+sExp *eval_cond (sExp *clauses);
+
 #endif

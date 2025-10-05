@@ -403,6 +403,93 @@ void test_eval() {
     printf("\n");
 }
 
+void test_short_circuit_and_conditionals() {
+    // ---------- AND ----------
+    const char *and_tests[][2] = {
+        {"(and t t)", "t"},
+        {"(and nil t)", "nil"},
+        {"(and t nil)", "nil"},
+        {"(and)", "t"}, // empty and should return true
+    };
+
+    for (int i = 0; i < 4; i++) {
+        FILE *f = fmemopen((void*)and_tests[i][0], strlen(and_tests[i][0]), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+        if (strcmp(and_tests[i][1], "t") == 0)
+            assert_true(result, "and", and_tests[i][0]);
+        else
+            assert_nil(result, "and", and_tests[i][0]);
+        fclose(f);
+    }
+
+    // ---------- OR ----------
+    const char *or_tests[][2] = {
+        {"(or nil nil)", "nil"},
+        {"(or t nil)", "t"},
+        {"(or nil t)", "t"},
+        {"(or)", "nil"}, // empty or should return nil
+    };
+
+    for (int i = 0; i < 4; i++) {
+        FILE *f = fmemopen((void*)or_tests[i][0], strlen(or_tests[i][0]), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+        if (strcmp(or_tests[i][1], "t") == 0)
+            assert_true(result, "or", or_tests[i][0]);
+        else
+            assert_nil(result, "or", or_tests[i][0]);
+        fclose(f);
+    }
+
+    // ---------- IF ----------
+    const char *if_tests[][3] = {
+        {"(if t 1 2)", "1", "true branch"},
+        {"(if nil 1 2)", "2", "false branch"},
+        {"(if t 1)", "1", "no else, true"},
+        {"(if nil 1)", "nil", "no else, false"},
+    };
+
+    for (int i = 0; i < 4; i++) {
+        FILE *f = fmemopen((void*)if_tests[i][0], strlen(if_tests[i][0]), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+
+        if (strcmp(if_tests[i][1], "nil") == 0)
+            assert_nil(result, if_tests[i][2], if_tests[i][0]);
+        else if (strcmp(if_tests[i][1], "t") == 0)
+            assert_true(result, if_tests[i][2], if_tests[i][0]);
+        else
+            assert_int(atol(if_tests[i][1]), result, if_tests[i][2], if_tests[i][0]);
+
+        fclose(f);
+    }
+
+    // ---------- COND ----------
+    const char *cond_tests[][3] = {
+        {"(cond (nil 1) (t 2))", "2", "second true branch"},
+        {"(cond (t 42))", "42", "first branch true"},
+        {"(cond (nil 1) (nil 2))", "nil", "no branch true"},
+        {"(cond ((eq 1 2) 5) (t 99))", "99", "eq fails, t true"},
+        {"(cond)", "nil", "empty cond"},
+    };
+
+    for (int i = 0; i < 5; i++) {
+        FILE *f = fmemopen((void*)cond_tests[i][0], strlen(cond_tests[i][0]), "r");
+        sExp *expr = read_sexp(f);
+        sExp *result = eval(expr);
+
+        if (strcmp(cond_tests[i][1], "nil") == 0)
+            assert_nil(result, cond_tests[i][2], cond_tests[i][0]);
+        else
+            assert_int(atol(cond_tests[i][1]), result, cond_tests[i][2], cond_tests[i][0]);
+
+        fclose(f);
+    }
+
+    printf("\n");
+}
+
 
 int main() {
     init_runtime();
@@ -425,8 +512,11 @@ int main() {
     test_logical();
     test_arithmetic_errors();
     
-    printf("=== Sprint 4: Eval ===\n");
+    printf("=== Sprint 5: Eval ===\n");
     test_eval();
+
+    printf("=== Sprint 6: Short-Circuiting & Conditionals ===\n");
+    test_short_circuit_and_conditionals();
 
     printf("\nTests Passed: %d\n", tests_passed);
     printf("Tests Failed: %d\n", tests_failed);
