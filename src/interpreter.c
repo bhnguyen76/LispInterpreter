@@ -7,27 +7,51 @@
 sExp *NIL;   
 sExp *TRUE; 
 sExp *global_env = NULL;
+int should_quit = 0;    
+int exit_code   = 0; 
+sExp *exit_value = NULL;
 
 sExp *read_sexp(FILE *in);
 void print_sexp(sExp *exp);
 
+static inline sExp *make_env_frame(void) { return cons(NIL, NIL); }
+
 void init_runtime() {
-    // Initialize NIL
     NIL = malloc(sizeof(sExp));
     NIL->type = TYPE_NIL;
 
-    // Initialize TRUE
     TRUE = malloc(sizeof(sExp));
     TRUE->type = TYPE_SYMBOL;
     TRUE->strVal = strdup("t");
 
-    // Initialize global_env
+    exit_value = NIL;
+
     global_env = make_env();
 }
 
 // -- Global Environment Functions --
 sExp *make_env() {
-    return cons(NIL, cons(NIL, NIL));
+    return cons(make_env_frame(), NIL);
+}
+
+sExp *extend_env(sExp *parent) {
+    return cons(make_env_frame(), parent);
+}
+
+void set_car(sExp *pair, sExp *new_car) {
+    if (pair->type != TYPE_CONS) {
+        fprintf(stderr, "Error: set_car called on non-cons cell.\n");
+        return;
+    }
+    pair->cons.car = new_car;
+}
+
+void set_cdr(sExp *pair, sExp *new_cdr) {
+    if (pair->type != TYPE_CONS) {
+        fprintf(stderr, "Error: set_cdr called on non-cons cell.\n");
+        return;
+    }
+    pair->cons.cdr = new_cdr;
 }
 
 sExp *find_symbol(sExp *target, sExp *symbols, sExp *values) {
@@ -38,51 +62,61 @@ sExp *find_symbol(sExp *target, sExp *symbols, sExp *values) {
     return find_symbol(target, cdr(symbols), cdr(values));
 }
 
-sExp *lookup(sExp *target) {
-    sExp *symbols = car(global_env);
-    sExp *values = car(cdr(global_env));
+static int is_symbol_with(sExp *x) { return x && x->type == TYPE_SYMBOL && x->strVal; }
 
-    return find_symbol(target, symbols, values);
+sExp *lookup_in_env(sExp *symbol, sExp *env) {
+    while (!is_nil(env)) {
+        sExp *frame = car(env);
+        if (frame && frame->type == TYPE_CONS) {
+            sExp *symbols = car(frame);  
+            sExp *values  = cdr(frame);  
+            while (!is_nil(symbols) && !is_nil(values)) {
+                sExp *key = car(symbols);
+                if (is_symbol_with(key) && is_symbol_with(symbol) &&
+                    strcmp(key->strVal, symbol->strVal) == 0) {
+                    return car(values);
+                }
+                symbols = cdr(symbols);
+                values  = cdr(values);
+            }
+        }
+        env = cdr(env);
+    }
+
+    if (is_symbol_with(symbol) && strcmp(symbol->strVal, "t") == 0)  return TRUE;
+    if (is_symbol_with(symbol) && strcmp(symbol->strVal, "nil") == 0) return NIL;
+
+    return symbol;
 }
 
-sExp *set_symbol(sExp *symbol, sExp *value) {
-    sExp *symbols = car(global_env);
-    sExp *values  = car(cdr(global_env));
+sExp *set_symbol_in_env(sExp *symbol, sExp *value, sExp *env) {
+    sExp *frame = car(env);
+    if (!frame || frame->type != TYPE_CONS) {
+        frame = make_env_frame();
+        set_car(env, frame);
+    }
 
-    sExp *new_symbols = cons(symbol, symbols);
-    sExp *new_values  = cons(value, values);
+    sExp *symbols = car(frame);
+    sExp *values  = cdr(frame);
 
-    global_env = cons(new_symbols, cons(new_values, NIL));
+    sExp *s = symbols;
+    sExp *v = values;
+    while (!is_nil(s) && !is_nil(v)) {
+        sExp *key = car(s);
+        if (is_symbol_with(key) && is_symbol_with(symbol) &&
+            strcmp(key->strVal, symbol->strVal) == 0) {
+            set_car(v, value);
+            return value;
+        }
+        s = cdr(s);
+        v = cdr(v);
+    }
 
+    set_car(frame, cons(symbol, symbols));   
+    set_cdr(frame, cons(value,  values)); 
     return value;
 }
 
-
-// sExp* lookup(sExp* sym, sExp* env) {
-//     while (!is_nil(env)) {
-//         sExp* pair = car(env);
-//         if (strcmp(car(pair)->strVal, sym->strVal) == 0) {
-//             return cdr(pair);
-//         }
-//         env = cdr(env);
-//     }
-//     return NIL; // not found
-// }
-
-// void env_set(sExp* sym, sExp* val, sExp** env) {
-//     sExp* e = *env;
-//     while (!is_nil(e)) {
-//         sExp* pair = car(e);
-//         if (strcmp(car(pair)->strVal, sym->strVal) == 0) {
-//             // update existing
-//             pair->cons.cdr = val;
-//             return;
-//         }
-//         e = cdr(e);
-//     }
-//     // not found → prepend new binding
-//     *env = cons(cons(sym, val), *env);
-// }
 
 // -- Core Read and Write Functions --
 int peek(FILE *input) {
@@ -91,23 +125,16 @@ int peek(FILE *input) {
     return character;
 }
 
-void skip_ws(FILE *input) {
-    int charcter;
-    while ((charcter = fgetc(input)) != EOF) {
-        if (!isspace(charcter)) {
-            ungetc(charcter, input);
-            return;
-        }
+void skip_ws_and_comments(FILE *input) {
+    int character;
+    for (;;) {
+        character = fgetc(input);
+        if (character == EOF) return;
+        if (isspace(character)) continue;
+        if (character == ';') { while ((character = fgetc(input)) != EOF && character != '\n'){} continue; }
+        ungetc(character, input); return;
     }
 }
-
-// sExp *make_nil() { 
-    // sExp *exp = malloc(sizeof(sExp)); 
-    // exp->type = TYPE_NIL; 
-    // return exp; 
-    // }
-
-// sExp *make_true() { return TRUE; } 
 
 sExp *make_int(long val) {
     sExp *exp = malloc(sizeof(sExp));
@@ -145,6 +172,18 @@ sExp *cons(sExp *car, sExp *cdr) {
     return exp;
 }
 
+sExp *make_lambda(sExp *params, sExp *body, sExp *env) {
+    sExp *lambda = malloc(sizeof(sExp));
+    lambda->type = TYPE_LAMBDA;
+    lambda->cons.car = params;           
+    lambda->cons.cdr = cons(body, env);  
+    return lambda;
+}
+
+static inline sExp *closure_params(sExp *fn) { return fn->cons.car; }
+static inline sExp *closure_body  (sExp *fn) { return car(fn->cons.cdr); }
+static inline sExp *closure_env   (sExp *fn) { return cdr(fn->cons.cdr); }
+
 sExp *car(sExp *exp) {
     return (exp->type == TYPE_CONS) ? exp->cons.car : NIL;
 }
@@ -158,7 +197,7 @@ sExp *read_atom(FILE *input) {
     int i =0;
     int character;
 
-    while ((character = fgetc(input)) != EOF && !isspace(character) && character != '(' && character != ')') {
+    while ((character = fgetc(input)) != EOF && !isspace(character) && character != '(' && character != ')' && character != ';') {
         buffer[i++] = character;
     }
 
@@ -190,13 +229,12 @@ sExp *read_string(FILE *input) {
 }
 
 sExp *read_list(FILE *input) {
-    skip_ws(input);
+    skip_ws_and_comments(input);
 
     int character = peek(input);
 
     if (character == ')') {
         fgetc(input);
-        // return make_nil();
         return NIL;
     }
 
@@ -207,14 +245,17 @@ sExp *read_list(FILE *input) {
 }
 
 sExp *read_sexp(FILE *input) {
-    skip_ws(input);
+    skip_ws_and_comments(input);
     int character = fgetc(input);
 
     if (character == EOF) return NULL;
 
     if (character == '(') return read_list(input);
     else if (character == '"') return read_string(input);
-    else {
+    else if (character == '\'') {
+        sExp *q = read_sexp(input);
+        return cons(make_symbol("quote"), cons(q, NIL));
+    } else {
         ungetc(character, input);
         return read_atom(input);
     }
@@ -372,67 +413,182 @@ sExp *logical_not(sExp *a) {
 
 // -- eval function --
 sExp *eval(sExp *sexp) {
-    if (is_nil(sexp)) {
-        return NIL;
-    }
+    return eval_in_env(sexp, global_env);
+}
 
-    if (sexp->type == TYPE_INT || sexp->type == TYPE_DOUBLE || sexp->type == TYPE_STRING) {
+sExp *eval_in_env(sExp *sexp, sExp *env) {
+    if (is_nil(sexp)) return NIL;
+
+    if (sexp->type == TYPE_INT || sexp->type == TYPE_DOUBLE || sexp->type == TYPE_STRING)
         return sexp;
-    }
 
-    if (sexp->type == TYPE_SYMBOL) {
-        return lookup(sexp); 
-    }
+    if (sexp->type == TYPE_SYMBOL)
+        return lookup_in_env(sexp, env);
 
     if (is_list(sexp)) {
         sExp *fn = car(sexp);
         sExp *args = cdr(sexp);
 
-        if (fn->type == TYPE_SYMBOL && strcmp(fn->strVal, "quote") == 0) {
-            return car(args);
+        if (fn->type == TYPE_SYMBOL) {
+            const char *name = fn->strVal;
+
+            if (strcmp(name, "quote") == 0)
+                return car(args);
+            if (strcmp(name, "lambda") == 0) {
+                sExp *params = car(args);
+                sExp *body   = car(cdr(args));
+                return make_lambda(params, body, env);
+            }
+            if (strcmp(name, "set") == 0) {
+                sExp *symbol = car(args);
+                sExp *value = eval_in_env(car(cdr(args)), env);
+                return set_symbol_in_env(symbol, value, env);
+            }
+            if (strcmp(name, "define") == 0) {
+                sExp *name   = car(args);
+                sExp *params = car(cdr(args));
+                sExp *body   = car(cdr(cdr(args)));
+
+                sExp *lambda = make_lambda(params, body, env);
+                set_symbol_in_env(name, lambda, global_env);
+                return name; 
+            }
+            if (strcmp(name, "if") == 0) {
+                sExp *test = eval_in_env(car(args), env);
+                if (!is_nil(test))
+                    return eval_in_env(car(cdr(args)), env);
+                else
+                    return eval_in_env(car(cdr(cdr(args))), env);
+            }
+            if (strcmp(name, "cond") == 0)
+                return eval_cond_in_env(args, env);
+            if (strcmp(name, "and") == 0) {
+                sExp *xs = args;
+                if (is_nil(xs)) return TRUE;       
+                sExp *last = TRUE;
+                while (!is_nil(xs)) {
+                    last = eval_in_env(car(xs), env);
+                    if (is_nil(last)) return NIL; 
+                    xs = cdr(xs);
+                }
+                return last;
+            }
+            if (strcmp(name, "or") == 0) {
+                sExp *xs = args;
+                while (!is_nil(xs)) {
+                    sExp *v = eval_in_env(car(xs), env);
+                    if (!is_nil(v)) return TRUE;   // short-circuit true
+                    xs = cdr(xs);
+                }
+                return NIL;  
+            }
+            if ((strcmp(name, "add") == 0) || (strcmp(name, "+") == 0))
+                return add(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "sub") == 0) || (strcmp(name, "-") == 0))
+                return sub(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "mul") == 0) || (strcmp(name, "*") == 0))
+                return mul(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "div") == 0) || (strcmp(name, "/") == 0))
+                return divide(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "mod") == 0) || (strcmp(name, "%") == 0))
+                return mod(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "eq") == 0) || (strcmp(name, "==") == 0))
+                return eq(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "lt") == 0) || (strcmp(name, "<") == 0))
+                return lt(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "gt") == 0) || (strcmp(name, ">") == 0))
+                return gt(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "lte") == 0) || (strcmp(name, "<=") == 0))
+                return lte(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "gte") == 0) || (strcmp(name, ">=") == 0))
+                return gte(eval_in_env(car(args), env), eval_in_env(car(cdr(args)), env));
+            if ((strcmp(name, "not") == 0) || (strcmp(name, "!") == 0))
+                return logical_not(eval_in_env(car(args), env));
+            if (strcmp(name, "car") == 0) {
+                sExp *lst = eval_in_env(car(args), env);
+                return car(lst);  
+            }
+            if (strcmp(name, "cdr") == 0) {
+                sExp *lst = eval_in_env(car(args), env);
+                return cdr(lst);
+            }
+            if (strcmp(name, "cons") == 0) {
+                sExp *a = eval_in_env(car(args), env);
+                sExp *d = eval_in_env(car(cdr(args)), env);
+                return cons(a, d);
+            }
+            if (strcmp(name, "nil?") == 0) {
+                sExp *v = eval_in_env(car(args), env);
+                return is_nil(v) ? TRUE : NIL;
+            }
+            if (strcmp(name, "print") == 0) {
+                sExp *v = eval_in_env(car(args), env);
+                print_sexp(v);
+                printf("\n");
+                return v;  
+            }
+            if (strcmp(name, "exit") == 0) {
+                int code = 0;
+                sExp *val = NIL;
+
+                if (is_nil(args)) {
+                    val = make_string("Goodbye!");
+                } else {
+                    val = eval_in_env(car(args), env);
+                    if (val && val->type == TYPE_INT) code = (int)val->intVal;
+                }
+
+                should_quit = 1;
+                exit_code   = code;
+                exit_value  = val;                         
+                return val ? val : NIL;                   
+            }
         }
 
-        if (strcmp(fn->strVal, "set") == 0) {
-            sExp *symbol = car(args);
-            sExp *value = eval(car(cdr(args)));
-            // return env_set(symbol, value, &global_env);
-            return set_symbol(symbol, value);
-        }
+        sExp *func = eval_in_env(fn, env);
+        if (func->type == TYPE_LAMBDA) {
+            sExp *params    = closure_params(func);
+            sExp *body_form = closure_body(func);
+            sExp *def_env   = closure_env(func);
+            sExp *local_env = extend_env(def_env);
 
-        if (strcmp(fn->strVal, "add") == 0) {
-            return add(eval(car(args)), eval(car(cdr(args))));
+            sExp *arg_list = args;
+            sExp *param_list = params;
+
+            while (!is_nil(arg_list) && !is_nil(param_list)) {
+                sExp *value = eval_in_env(car(arg_list), env); 
+                set_symbol_in_env(car(param_list), value, local_env);
+                arg_list    = cdr(arg_list);
+                param_list  = cdr(param_list);
+            }
+            return eval_in_env(body_form, local_env);
         }
-        if (strcmp(fn->strVal, "sub") == 0) {
-            return sub(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "mul") == 0) {
-            return mul(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "div") == 0) {
-            return divide(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "mod") == 0) {
-            return mod(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "eq") == 0) {
-            return eq(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "not") == 0) {
-            return logical_not(eval(car(args)));
-        }
-        if (strcmp(fn->strVal, "lt") == 0) {
-            return lt(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "gt") == 0) {
-            return gt(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "lte") == 0) {
-            return lte(eval(car(args)), eval(car(cdr(args))));
-        }
-        if (strcmp(fn->strVal, "gte") == 0) {
-            return gte(eval(car(args)), eval(car(cdr(args))));
-        }
+        return make_symbol("UnknownFunction");
     }
 
-    return make_symbol("UnknownFunction");
+    return make_symbol("EvalError");
 }
+
+sExp *eval_cond_in_env (sExp *clauses, sExp *env) {
+    if (is_nil(clauses)) return NIL;
+
+    sExp *clause = car(clauses);
+    if (is_nil(clause)) return eval_cond_in_env(cdr(clauses), env);
+
+    sExp *test = car(clause);
+    sExp *rest = cdr(clause);           
+    sExp *test_eval;
+
+    if (test->type == TYPE_SYMBOL && strcmp(test->strVal, "t") == 0) test_eval = TRUE;
+    else test_eval = eval_in_env(test, env);
+
+    if (!is_nil(test_eval)) {
+        if (is_nil(rest)) return TRUE;
+
+        sExp *result = car(rest);
+        return eval_in_env(result, env);
+    }
+
+    return eval_cond_in_env(cdr(clauses), env);
+}
+

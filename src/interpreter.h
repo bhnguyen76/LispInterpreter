@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-typedef enum { TYPE_NIL, TYPE_INT, TYPE_DOUBLE, TYPE_SYMBOL, TYPE_STRING, TYPE_CONS } sType;
+typedef enum { TYPE_NIL, TYPE_INT, TYPE_DOUBLE, TYPE_SYMBOL, TYPE_STRING, TYPE_CONS, TYPE_LAMBDA } sType;
 
 typedef struct sExp {
     sType type;
@@ -21,15 +21,18 @@ typedef struct sExp {
 extern sExp *NIL;
 extern sExp *TRUE;
 extern sExp *global_env;
+extern int should_quit;
+extern int exit_code;
+extern sExp *exit_value;
 
 void init_runtime();
 
 // -- Environment --
 sExp *make_env();
-sExp *lookup(sExp *symbol);
-sExp *set_symbol(sExp *symbol, sExp *value);
-// sExp* lookup(sExp* sym, sExp* env);
-// void  env_set(sExp* sym, sExp* val, sExp** env);
+void set_car(sExp *pair, sExp *new_car);
+void set_cdr(sExp *pair, sExp *new_cdr);
+sExp *lookup_in_env(sExp *symbol, sExp *env);
+sExp *set_symbol_in_env(sExp *symbol, sExp *value, sExp *env);
 
 // -- Constructors --
 sExp *make_int(long val);
@@ -37,6 +40,7 @@ sExp *make_double(double val);
 sExp *make_symbol(const char *s);
 sExp *make_string(const char *s);
 sExp *cons(sExp *car, sExp *cdr);
+sExp *make_lambda(sExp *params, sExp *body, sExp *env);
 
 // -- List Helpers --
 sExp *car(sExp *exp);
@@ -71,4 +75,7 @@ sExp *logical_not(sExp *a);
 
 // -- evalutaion --
 sExp *eval(sExp *sexp);
+sExp *eval_in_env(sExp *sexp, sExp *env);
+sExp *eval_cond_in_env (sExp *clauses, sExp *env);
+
 #endif
