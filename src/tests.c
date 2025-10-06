@@ -153,6 +153,21 @@ void assert_nil(sExp *result, const char *description, const char *input) {
     }
 }
 
+static void run_str_expect_int(const char *src, long expected) {
+    FILE *f = fmemopen((void*)src, strlen(src), "r");
+    sExp *expr = read_sexp(f);
+    sExp *result = eval(expr);
+    fclose(f);
+    assert_int(expected, result, src, src);
+}
+
+static void run_str_noassert(const char *src) {
+    FILE *f = fmemopen((void*)src, strlen(src), "r");
+    sExp *expr = read_sexp(f);
+    (void)eval(expr);
+    fclose(f);
+}
+
 void test_constructors() {
     assert_int(42, make_int(42), "int constructor", "make_int(42)");
     assert_double(3.14, make_double(3.14), "double constructor", "make_double(3.14)");
@@ -490,6 +505,140 @@ void test_short_circuit_and_conditionals() {
     printf("\n");
 }
 
+void test_user_defined_functions() {
+    // --- (define square (x) (mul x x)) ---
+    const char *src1 = "(define square (x) (mul x x))";
+    FILE *f1 = fmemopen((void*)src1, strlen(src1), "r");
+    sExp *expr1 = read_sexp(f1);
+    sExp *result1 = eval(expr1);
+    fclose(f1);
+
+    assert_symbol("square", result1, "define function square", "(define square (x) (mul x x))");
+
+    // --- (square 5) = 25 ---
+    const char *src2 = "(square 5)";
+    FILE *f2 = fmemopen((void*)src2, strlen(src2), "r");
+    sExp *expr2 = read_sexp(f2);
+    sExp *result2 = eval(expr2);
+    fclose(f2);
+
+    assert_int(25, result2, "square function call", "(square 5)");
+
+    // --- Nested call: (square (square 2)) = 16 ---
+    const char *src3 = "(square (square 2))";
+    FILE *f3 = fmemopen((void*)src3, strlen(src3), "r");
+    sExp *expr3 = read_sexp(f3);
+    sExp *result3 = eval(expr3);
+    fclose(f3);
+
+    assert_int(16, result3, "nested square calls", "(square (square 2))");
+
+    // --- (define addmul (a b c) (mul (add a b) c)) ---
+    const char *src4 = "(define addmul (a b c) (mul (add a b) c))";
+    FILE *f4 = fmemopen((void*)src4, strlen(src4), "r");
+    sExp *expr4 = read_sexp(f4);
+    sExp *result4 = eval(expr4);
+    fclose(f4);
+
+    assert_symbol("addmul", result4, "define multi-arg function addmul", "(define addmul (a b c) (mul (add a b) c))");
+
+    // --- (addmul 1 2 3) = (mul 3 3) = 9 ---
+    const char *src5 = "(addmul 1 2 3)";
+    FILE *f5 = fmemopen((void*)src5, strlen(src5), "r");
+    sExp *expr5 = read_sexp(f5);
+    sExp *result5 = eval(expr5);
+    fclose(f5);
+
+    assert_int(9, result5, "call addmul", "(addmul 1 2 3)");
+
+    // --- Local scope test ---
+    const char *src6 = "(set x 10)";
+    FILE *f6 = fmemopen((void*)src6, strlen(src6), "r");
+    sExp *expr6 = read_sexp(f6);
+    sExp *result6 = eval(expr6);
+    fclose(f6);
+    assert_int(10, result6, "set x globally", "(set x 10)");
+
+    const char *src7 = "(define usex (x) (add x 5))";
+    FILE *f7 = fmemopen((void*)src7, strlen(src7), "r");
+    sExp *expr7 = read_sexp(f7);
+    sExp *result7 = eval(expr7);
+    fclose(f7);
+    assert_symbol("usex", result7, "define usex", "(define usex (x) (add x 5))");
+
+    const char *src8 = "(usex 3)";
+    FILE *f8 = fmemopen((void*)src8, strlen(src8), "r");
+    sExp *expr8 = read_sexp(f8);
+    sExp *result8 = eval(expr8);
+    fclose(f8);
+    assert_int(8, result8, "usex local scope", "(usex 3)");
+
+    // x should still be 10 globally
+    assert_int(10, eval(make_symbol("x")), "x remains unchanged after function call", "x");
+
+    // --- Define a function that calls another function ---
+    const char *src9 = "(define quad (x) (square (square x)))";
+    FILE *f9 = fmemopen((void*)src9, strlen(src9), "r");
+    sExp *expr9 = read_sexp(f9);
+    sExp *result9 = eval(expr9);
+    fclose(f9);
+    assert_symbol("quad", result9, "define nested function quad", "(define quad (x) (square (square x)))");
+
+    const char *src10 = "(quad 2)";
+    FILE *f10 = fmemopen((void*)src10, strlen(src10), "r");
+    sExp *expr10 = read_sexp(f10);
+    sExp *result10 = eval(expr10);
+    fclose(f10);
+    assert_int(16, result10, "quad(2) = 16", "(quad 2)");
+
+    // --- Recursive function (factorial) ---
+    const char *src11 =
+        "(define fact (n) (if (lte n 1) 1 (mul n (fact (sub n 1)))))";
+    FILE *f11 = fmemopen((void*)src11, strlen(src11), "r");
+    sExp *expr11 = read_sexp(f11);
+    sExp *result11 = eval(expr11);
+    fclose(f11);
+    assert_symbol("fact", result11, "define recursive function fact", "(define fact (n) (if (lte n 1) 1 (mul n (fact (sub n 1)))))");
+
+    const char *src12 = "(fact 5)";
+    FILE *f12 = fmemopen((void*)src12, strlen(src12), "r");
+    sExp *expr12 = read_sexp(f12);
+    sExp *result12 = eval(expr12);
+    fclose(f12);
+    assert_int(120, result12, "factorial of 5", "(fact 5)");
+
+    printf("\n");
+}
+
+void test_lambda_functions() {
+    run_str_expect_int("((lambda (x) (add x 1)) 5)", 6);
+
+    run_str_noassert("(set inc (lambda (y) (add y 1)))");
+    run_str_expect_int("(inc 10)", 11);
+
+    // 3) Lambda as an argument (via a simple higher-order 'apply1' we define)
+    run_str_noassert("(define apply1 (f x) (f x))");
+    run_str_expect_int("(apply1 (lambda (z) (mul z z)) 7)", 49);
+
+    // 4) Closures: make-adder returns a lambda that captures n
+    run_str_noassert("(define make-adder (n) (lambda (x) (add x n)))");
+    run_str_expect_int("((make-adder 5) 3)", 8);
+    run_str_noassert("(set add10 (make-adder 10))");
+    run_str_expect_int("(add10 7)", 17);
+
+    // 5) Nested closures
+    run_str_noassert("(define mk (a) (lambda (b) (lambda (c) (add (add a b) c))))");
+    run_str_expect_int("(((mk 1) 2) 3)", 6);
+
+    // 6) Lambda can be returned and immediately applied
+    run_str_expect_int("(( (lambda (n) (lambda (x) (add x n))) 4) 9)", 13);
+
+    // 7) Shadowing parameter names (ensure local params override outer)
+    run_str_noassert("(define shadow (x) (lambda (x) (add x 1)))");
+    run_str_expect_int("((shadow 100) 5)", 6);
+
+    printf("\n");
+}
 
 int main() {
     init_runtime();
@@ -517,6 +666,12 @@ int main() {
 
     printf("=== Sprint 6: Short-Circuiting & Conditionals ===\n");
     test_short_circuit_and_conditionals();
+
+    printf("=== Sprint 7: User-Defined Functions ===\n");
+    test_user_defined_functions();
+    
+    printf("=== Sprint 8: Lambda Functions ===\n");
+    test_lambda_functions();
 
     printf("\nTests Passed: %d\n", tests_passed);
     printf("Tests Failed: %d\n", tests_failed);
